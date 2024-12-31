@@ -1,0 +1,201 @@
+<html><head><base href="." />
+<style>
+  body { margin: 0; overflow: hidden; background: #87CEEB; }
+  
+  .game-container {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    margin: 20px auto;
+    border: 4px solid #654321;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Crect width='800' height='600' fill='%2390EE90'/%3E%3Cpath d='M0 0h800v600H0z' fill='none' stroke='%23654321' stroke-width='2' stroke-dasharray='4 4'/%3E%3Cpath d='M0 60h800M0 120h800M0 180h800M0 240h800M0 300h800M0 360h800M0 420h800M0 480h800M0 540h800' stroke='%23654321' stroke-width='1' stroke-dasharray='2 4'/%3E%3Cpath d='M80 0v600M160 0v600M240 0v600M320 0v600M400 0v600M480 0v600M560 0v600M640 0v600M720 0v600' stroke='%23654321' stroke-width='1' stroke-dasharray='2 4'/%3E%3C/svg%3E") no-repeat;
+  }
+
+  .plot {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border: 2px solid #654321;
+    background: #8B4513;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  .plot.planted {
+    background: #228B22;
+  }
+
+  .plot.ready {
+    animation: readyToHarvest 1s infinite;
+  }
+
+  .plant {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  @keyframes readyToHarvest {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  #inventory {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255,255,255,0.9);
+    padding: 10px;
+    border-radius: 5px;
+  }
+
+  #money {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(255,255,255,0.9);
+    padding: 10px;
+    border-radius: 5px;
+  }
+
+  .tool-selection {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.9);
+    padding: 10px;
+    border-radius: 5px;
+    display: flex;
+    gap: 10px;
+  }
+
+  button {
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="game-container" id="gameContainer"></div>
+<div id="inventory">Seeds: <span id="seedCount">10</span></div>
+<div id="money">Money: $<span id="moneyCount">100</span></div>
+<div class="tool-selection">
+  <button onclick="selectTool('plant')">Plant</button>
+  <button onclick="selectTool('harvest')">Harvest</button>
+  <button onclick="buySeeds()">Buy Seeds ($10)</button>
+</div>
+
+<script>
+const gameState = {
+  seeds: 10,
+  money: 100,
+  selectedTool: 'plant',
+  plots: []
+};
+
+function createPlot(x, y) {
+  const plot = {
+    x,
+    y,
+    planted: false,
+    growthStage: 0,
+    element: document.createElement('div')
+  };
+  
+  plot.element.className = 'plot';
+  plot.element.style.left = `${x * 70 + 10}px`;
+  plot.element.style.top = `${y * 70 + 10}px`;
+  plot.element.onclick = () => handlePlotClick(plot);
+  
+  document.getElementById('gameContainer').appendChild(plot.element);
+  gameState.plots.push(plot);
+}
+
+function handlePlotClick(plot) {
+  if (gameState.selectedTool === 'plant' && !plot.planted && gameState.seeds > 0) {
+    plantSeed(plot);
+  } else if (gameState.selectedTool === 'harvest' && plot.planted && plot.growthStage >= 100) {
+    harvestPlot(plot);
+  }
+}
+
+function plantSeed(plot) {
+  plot.planted = true;
+  plot.growthStage = 0;
+  plot.element.classList.add('planted');
+  gameState.seeds--;
+  updateDisplay();
+  
+  const plantElement = document.createElement('div');
+  plantElement.className = 'plant';
+  plot.element.appendChild(plantElement);
+  
+  growPlant(plot);
+}
+
+function growPlant(plot) {
+  const growthInterval = setInterval(() => {
+    if (!plot.planted) {
+      clearInterval(growthInterval);
+      return;
+    }
+    
+    plot.growthStage += 1;
+    const plantHeight = Math.min(plot.growthStage, 100) / 2;
+    plot.element.querySelector('.plant').style.height = `${plantHeight}%`;
+    
+    if (plot.growthStage >= 100) {
+      plot.element.classList.add('ready');
+      clearInterval(growthInterval);
+    }
+  }, 500);
+}
+
+function harvestPlot(plot) {
+  plot.planted = false;
+  plot.growthStage = 0;
+  plot.element.classList.remove('planted', 'ready');
+  if (plot.element.querySelector('.plant')) {
+    plot.element.querySelector('.plant').remove();
+  }
+  
+  gameState.money += 25; // Reward for harvesting
+  updateDisplay();
+}
+
+function selectTool(tool) {
+  gameState.selectedTool = tool;
+  document.querySelectorAll('.tool-selection button').forEach(btn => {
+    btn.style.backgroundColor = btn.innerText.toLowerCase().includes(tool) ? '#90EE90' : '';
+  });
+}
+
+function buySeeds() {
+  if (gameState.money >= 10) {
+    gameState.money -= 10;
+    gameState.seeds += 5;
+    updateDisplay();
+  }
+}
+
+function updateDisplay() {
+  document.getElementById('seedCount').textContent = gameState.seeds;
+  document.getElementById('moneyCount').textContent = gameState.money;
+}
+
+// Initialize game grid
+for (let y = 0; y < 6; y++) {
+  for (let x = 0; x < 8; x++) {
+    createPlot(x, y);
+  }
+}
+
+// Initial tool selection
+selectTool('plant');
+</script>
+</body></html>  
